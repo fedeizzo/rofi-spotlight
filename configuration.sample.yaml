@@ -6,3 +6,4 @@
     pattern: '*.pdf'
     recursive: false
     program: zathura
+    icon: 💻
