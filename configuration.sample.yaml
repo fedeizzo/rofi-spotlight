@@ -1,0 +1,8 @@
+%YAML 1.2
+---
+-
+    name: name you want
+    path: /test/test
+    pattern: '*.pdf'
+    recursive: false
+    program: zathura

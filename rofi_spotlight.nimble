@@ -12,3 +12,4 @@ bin           = @["rofi_spotlight"]
 # Dependencies
 
 requires "nim >= 1.0.6"
+requires "yaml >= 0.13.1"

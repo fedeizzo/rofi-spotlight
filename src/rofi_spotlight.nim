@@ -1,9 +1,9 @@
 import os
-import hashes
 from osproc import startProcess, execProcess
 import parseopt
 import tables
 from strutils import replace
+from config_parser import Directory, readConfig
 
 proc printErr(msg: string): void =
   stderr.write("error\n\t" & msg & "\n")
@@ -11,11 +11,28 @@ proc printErr(msg: string): void =
 proc helpMsg(): void =
   stdout.write("usage: rofi-terminal <direcory> --pattern:<pattern> ...\n")
 
-proc findSubDirs(dir: string, pattern: var string, patterns: var Table[string,
-    string]): seq[string] =
+proc printSeq*[T](s: seq[T]): void =
+  echo "sequence:"
+  for i in s:
+    echo "\t", i
+
+proc printTable*[T](t: Table[T, T]): void =
+  echo "table:"
+  for k, v in t.pairs:
+    echo "\t", k, " → ", v
+
+proc mergeTables*[T](t1, t2: var Table[T, T]): void =
+  for k, v in t2.pairs:
+    t1.add(k, v)
+
+proc findSubDirs(dir: string, pattern: string, patterns: var Table[string,
+                 string], dirsToProgram: var Table[string, string],
+                 dirsToIcon: var Table[string, string]): seq[string] =
   for kind, path in dir.walkDir:
     if kind == pcDir:
-      result.add(findSubDirs(path, pattern, patterns))
+      dirsToProgram.add(path & pattern, dirsToProgram[dir & pattern])
+      dirsToIcon.add(path & pattern, dirsToIcon[dir & pattern])
+      result.add(findSubDirs(path, pattern, patterns, dirsToProgram, dirsToIcon))
       patterns.add(path, pattern)
       result.add(path)
 
@@ -63,7 +80,7 @@ proc parseOption(): (seq[string], Table[string, string]) =
 
   result = (dirs, patterns)
 
-proc findFiles(dir, pattern: string): (Table[string, string], Table[string,
+proc findFiles(dir, pattern: string, program: string): (Table[string, string], Table[string,
     string], seq[string]) =
   var
     filesToDir = initTable[string, string]()
@@ -73,69 +90,82 @@ proc findFiles(dir, pattern: string): (Table[string, string], Table[string,
   setCurrentDir(dir)
   if pattern != "":
     for f in pattern.walkFiles:
-      let name = f.splitFile.name
-      let ext = f.splitFile.ext
+      # let name = f.splitFile.name
+      # let ext = f.splitFile.ext
+      let name = f
       filesToDir.add(name, dir)
-      filesToExt.add(name, ext)
+      filesToExt.add(name, program)
       files.add(name)
   else:
     for f in "*".walkDirs:
-      let name = f.splitFile.name
-      let ext = f.splitFile.ext
+      # let name = f.splitFile.name
+      # let ext = f.splitFile.ext
+      let name = f
       filesToDir.add(name, dir)
-      filesToExt.add(name, ext)
+      filesToExt.add(name, program)
       files.add(name)
 
   result = (filesToDir, filesToExt, files)
 
-
-proc printSeq*[T](s: seq[T]): void =
-  echo "sequence:"
-  for i in s:
-    echo "\t", i
-
-proc printTable*[T](t: Table[T, T]): void =
-  echo "table:"
-  for k, v in t.pairs:
-    echo "\t", k, " → ", v
-
-proc mergeTables*[T](t1, t2: var Table[T, T]): void =
-  for k, v in t2.pairs:
-    t1.add(k, v)
-
-
 when isMainModule:
-  if paramCount() == 0:
-    printErr("insert at least one folder and pattern")
-    helpMsg()
-    quit 2
+  var config = readConfig()
+  # if paramCount() == 0:
+  #   printErr("insert at least one folder and pattern")
+  #   helpMsg()
+  #   quit 2
 
-  let parsedOpt = parseOption()
+  # let parsedOpt = parseOption()
+  # echo parsedOpt
   var
-    dirs = parsedOpt[0]
+    dirs: seq[string]
     files: seq[string]
-    patterns = parsedOpt[1]
+    patterns = initTable[string, string]()
     filesToDir = initTable[string, string]()
-    filesToExt = initTable[string, string]()
+    dirsToProgram = initTable[string, string]()
+    filesToProgram = initTable[string, string]()
+    dirsToIcon = initTable[string, string]()
+    isRecursive: seq[bool]
 
-  var tmpDirs: seq[string]
+  for c in config:
+    dirs.insert(c.path)
+    patterns.add(c.path, c.pattern)
+    dirsToProgram.add(c.path & c.pattern, c.program)
+    dirsToIcon.add(c.path & c.pattern, c.icon)
+    isRecursive.insert(c.recursive)
+
+  var
+    tmpDirs: seq[string]
+    index = 0
   for d in dirs:
-    tmpDirs = tmpDirs & findSubDirs(d, patterns[d], patterns)
+    if isRecursive[index]:
+      tmpDirs = tmpDirs & findSubDirs(d, patterns[d], patterns, dirsToProgram, dirsToIcon)
   dirs = dirs & tmpDirs
 
   for d in dirs:
-    var tmp = findFiles(d, patterns[d])
+    var tmp = findFiles(d, patterns[d], dirsToProgram[d & patterns[d]])
     mergeTables(filesToDir, tmp[0])
-    mergeTables(filesToExt, tmp[1])
+    mergeTables(filesToProgram, tmp[1])
     files = files & tmp[2]
+
 
   var filesString: string
   for f in files:
-    filesString = filesString & f & "\n"
+    let dir = filesToDir[f]
+    let icon = dirsToIcon[dir & patterns[dir]]
+    filesString = filesString & icon & " " & f & "\n"
 
   var rofiOutput = execProcess("echo \"" & filesString & "\" | rofi -dmenu")
   rofiOutput = replace(rofiOutput, "\n", "")
+  var
+    tmp: string
+    flag = false
+  for i in rofiOutput:
+    if flag:
+      tmp.add(i)
 
+    if i == ' ':
+      flag = true
+  rofiOutput = tmp
 
   if rofiOutput == "":
     quit 0
@@ -144,14 +174,19 @@ when isMainModule:
     cmd: string
     path: string
 
-  if filesToExt[rofiOutput] == ".pdf":
-    cmd = "zathura "
-    path = filesToDir[rofiOutput] & "/" & rofiOutput & filesToExt[rofiOutput] & "&"
-    discard execShellCmd(cmd & path)
-  elif filesToExt[rofiOutput] == "":
-    cmd = "alacritty --working-directory "
-    path = filesToDir[rofiOutput] & "/" & "&"
+  cmd = filesToProgram[rofiOutput] & " "
+  path = filesToDir[rofiOutput] & "/" & rofiOutput & "&"
+  path = replace(path, " ", "\\ ")
+  path = replace(path, " ", "\\ ")
+  discard execShellCmd(cmd & path)
+  # if filesToProgram[rofiOutput] == ".pdf":
+  #   cmd = "zathura "
+  #   path = filesToDir[rofiOutput] & "/" & rofiOutput & filesToProgram[rofiOutput] & "&"
+  #   discard execShellCmd(cmd & path)
+  # elif filesToProgram[rofiOutput] == "":
+  #   cmd = "alacritty --working-directory "
+  #   path = filesToDir[rofiOutput] & "/" & "&"
 
-    discard execShellCmd(cmd & path)
+  #   discard execShellCmd(cmd & path)
 
   quit 0
