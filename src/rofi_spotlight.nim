@@ -1,15 +1,8 @@
 import os
 from osproc import startProcess, execProcess
-import parseopt
 import tables
 from strutils import replace
-from config_parser import Directory, readConfig
-
-proc printErr(msg: string): void =
-  stderr.write("error\n\t" & msg & "\n")
-
-proc helpMsg(): void =
-  stdout.write("usage: rofi-terminal <direcory> --pattern:<pattern> ...\n")
+from config_parser import Directory, readConfig, noMatchCommand
 
 proc printSeq*[T](s: seq[T]): void =
   echo "sequence:"
@@ -36,50 +29,6 @@ proc findSubDirs(dir: string, pattern: string, patterns: var Table[string,
       patterns.add(path, pattern)
       result.add(path)
 
-
-proc parseOption(): (seq[string], Table[string, string]) =
-  var
-    lastDir: string
-    dirs: seq[string]
-    patterns = initTable[string, string]()
-  var opt = initOptParser()
-
-  for kind, key, val in opt.getopt:
-    case opt.kind
-    of cmdEnd: break
-    of cmdShortOption:
-      if opt.key == "p":
-        patterns.add(lastDir, opt.val)
-      elif opt.key == "d":
-        dirs.add(opt.val)
-        lastDir = opt.val
-      else:
-        printErr(opt.key & " is not an opt")
-        helpMsg()
-        quit 3
-    of cmdLongOption:
-      if opt.key == "pattern":
-        patterns.add(lastDir, opt.val)
-      elif opt.key == "directory":
-        dirs.add(opt.val)
-        lastDir = opt.val
-      else:
-        printErr(opt.key & " is not an opt")
-        helpMsg()
-        quit 3
-    of cmdArgument:
-      if not dirExists(opt.key):
-        printErr(opt.key & " not argument allowed")
-        helpMsg()
-        quit 3
-
-  if dirs.len != patterns.len:
-    printErr("there must be a pattern for every folder")
-    helpMsg()
-    quit 4
-
-  result = (dirs, patterns)
-
 proc findFiles(dir, pattern: string, program: string): (Table[string, string], Table[string,
     string], seq[string]) =
   var
@@ -90,16 +39,12 @@ proc findFiles(dir, pattern: string, program: string): (Table[string, string], T
   setCurrentDir(dir)
   if pattern != "":
     for f in pattern.walkFiles:
-      # let name = f.splitFile.name
-      # let ext = f.splitFile.ext
       let name = f
       filesToDir.add(name, dir)
       filesToExt.add(name, program)
       files.add(name)
   else:
     for f in "*".walkDirs:
-      # let name = f.splitFile.name
-      # let ext = f.splitFile.ext
       let name = f
       filesToDir.add(name, dir)
       filesToExt.add(name, program)
@@ -109,13 +54,6 @@ proc findFiles(dir, pattern: string, program: string): (Table[string, string], T
 
 when isMainModule:
   var config = readConfig()
-  # if paramCount() == 0:
-  #   printErr("insert at least one folder and pattern")
-  #   helpMsg()
-  #   quit 2
-
-  # let parsedOpt = parseOption()
-  # echo parsedOpt
   var
     dirs: seq[string]
     files: seq[string]
@@ -154,18 +92,18 @@ when isMainModule:
     let icon = dirsToIcon[dir & patterns[dir]]
     filesString = filesString & icon & " " & f & "\n"
 
-  var rofiOutput = execProcess("echo \"" & filesString & "\" | rofi -dmenu")
+  var rofiOutput = execProcess("echo \"" & filesString & "\" | rofi -dmenu -p \"\"")
   rofiOutput = replace(rofiOutput, "\n", "")
   var
-    tmp: string
-    flag = false
+    flag = 0
+    parsedOutput: string
+
   for i in rofiOutput:
-    if flag:
-      tmp.add(i)
+    if flag > 0:
+      parsedOutput.add(i)
 
     if i == ' ':
-      flag = true
-  rofiOutput = tmp
+      flag += 1
 
   if rofiOutput == "":
     quit 0
@@ -174,19 +112,14 @@ when isMainModule:
     cmd: string
     path: string
 
-  cmd = filesToProgram[rofiOutput] & " "
-  path = filesToDir[rofiOutput] & "/" & rofiOutput & "&"
-  path = replace(path, " ", "\\ ")
-  path = replace(path, " ", "\\ ")
-  discard execShellCmd(cmd & path)
-  # if filesToProgram[rofiOutput] == ".pdf":
-  #   cmd = "zathura "
-  #   path = filesToDir[rofiOutput] & "/" & rofiOutput & filesToProgram[rofiOutput] & "&"
-  #   discard execShellCmd(cmd & path)
-  # elif filesToProgram[rofiOutput] == "":
-  #   cmd = "alacritty --working-directory "
-  #   path = filesToDir[rofiOutput] & "/" & "&"
-
-  #   discard execShellCmd(cmd & path)
+  try:
+    cmd = filesToProgram[parsedOutput] & " "
+    path = filesToDir[parsedOutput] & "/" & parsedOutput & "&"
+    path = replace(path, " ", "\\ ")
+    path = replace(path, " ", "\\ ")
+    discard execShellCmd(cmd & path)
+  except: 
+    cmd = noMatchCommand & " " & rofiOutput
+    discard execShellCmd(cmd)
 
   quit 0

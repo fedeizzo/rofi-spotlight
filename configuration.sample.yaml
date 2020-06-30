@@ -1,6 +1,5 @@
-%YAML 1.2
----
--
+no match command: your browser or a custom script for example
+directory: 
     name: name you want
     path: /test/test
     pattern: '*.pdf'
