@@ -119,7 +119,7 @@ when isMainModule:
     path = replace(path, " ", "\\ ")
     discard execShellCmd(cmd & path)
   except: 
-    cmd = noMatchCommand & " " & rofiOutput
+    cmd = noMatchCommand & " \'" & rofiOutput & "\'"
     discard execShellCmd(cmd)
 
   quit 0
