@@ -1,7 +1,7 @@
 import os
 import strutils
 
-var noMatchCommand* = "echo"
+var noMatchCommand* = "google"
 
 type
   Directory* = object
@@ -17,12 +17,12 @@ proc takeValue(str: string): string =
 
 proc readDirectory(file: File): Directory =
   var dir = Directory(
-    name: takeValue(file.readLine()),
-    path: takeValue(file.readLine()),
-    pattern: takeValue(file.readLine()),
-    recursive: takeValue(file.readLine()).parseBool,
-    program: takeValue(file.readLine()),
-    icon: takeValue(file.readLine())
+    name: takeValue(file.readLine().strip()),
+    path: takeValue(file.readLine().strip()),
+    pattern: takeValue(file.readLine().strip()),
+    recursive: takeValue(file.readLine().strip()).parseBool,
+    program: takeValue(file.readLine().strip()),
+    icon: takeValue(file.readLine().strip())
   )
   result = dir
 
@@ -32,7 +32,7 @@ proc parseConfig(str: string): void =
   let value = s[1]
   case config:
     of "no match command":
-      noMatchCommand = value
+      noMatchCommand = value.strip()
 
 proc readConfig*(): seq[Directory] =
   var directories: seq[Directory]

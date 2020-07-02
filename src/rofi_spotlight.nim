@@ -3,6 +3,7 @@ from osproc import startProcess, execProcess
 import tables
 from strutils import replace
 from config_parser import Directory, readConfig, noMatchCommand
+from config import defaultNoMatch
 
 proc printSeq*[T](s: seq[T]): void =
   echo "sequence:"
@@ -53,7 +54,7 @@ proc findFiles(dir, pattern: string, program: string): (Table[string, string], T
   result = (filesToDir, filesToExt, files)
 
 when isMainModule:
-  var config = readConfig()
+  var conf = readConfig()
   var
     dirs: seq[string]
     files: seq[string]
@@ -64,7 +65,7 @@ when isMainModule:
     dirsToIcon = initTable[string, string]()
     isRecursive: seq[bool]
 
-  for c in config:
+  for c in conf:
     dirs.insert(c.path)
     patterns.add(c.path, c.pattern)
     dirsToProgram.add(c.path & c.pattern, c.program)
@@ -120,6 +121,8 @@ when isMainModule:
     discard execShellCmd(cmd & path)
   except: 
     cmd = noMatchCommand & " \'" & rofiOutput & "\'"
+    if defaultNoMatch.hasKey(noMatchCommand):
+      cmd = defaultNoMatch[noMatchCommand] & rofiOutput & "' &"
     discard execShellCmd(cmd)
 
   quit 0

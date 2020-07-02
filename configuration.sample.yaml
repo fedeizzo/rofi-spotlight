@@ -1,3 +1,6 @@
+# Default command called when no match is found. Some default module are implemented inside the code:
+#   * google = use xdg-open to call a search directly on google
+#   * duck   = use xdg-open to call a search directly on duckduckgo
 no match command: your browser or a custom script for example
 directory: 
     name: name you want
