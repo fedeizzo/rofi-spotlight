@@ -2,6 +2,7 @@ import os
 import strutils
 
 var noMatchCommand* = "google"
+var iterateOverPATH* = false
 
 type
   Directory* = object
@@ -33,6 +34,8 @@ proc parseConfig(str: string): void =
   case config:
     of "no match command":
       noMatchCommand = value.strip()
+    of "iterate over PATH":
+      iterateOverPATH = value.strip().parseBool
 
 proc readConfig*(): seq[Directory] =
   var directories: seq[Directory]
