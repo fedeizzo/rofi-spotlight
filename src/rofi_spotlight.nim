@@ -63,7 +63,7 @@ when isMainModule:
 
 
   if isDesktopEntry.hasKey(parsedOutput) and isDesktopEntry[parsedOutput]:
-    cmd = "sh -c " & entryToExec[parsedOutput]
+    cmd = "sh -c " & entryToExec[parsedOutput] &  " &"
   elif filesToProgram.hasKey(parsedOutput):
     cmd = filesToProgram[parsedOutput] & " "
     path = filesToDir[parsedOutput] & "/" & parsedOutput & "&"
