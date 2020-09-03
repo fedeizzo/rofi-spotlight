@@ -51,6 +51,9 @@ when isMainModule:
     if i == ' ':
       flag += 1
 
+  if not filesToDir.hasKey(parsedOutput):
+    parsedOutput = rofiOutput
+
   if rofiOutput == "":
     quit 0
 
@@ -70,10 +73,9 @@ when isMainModule:
     path = replace(path, " ", "\\ ")
     path = replace(path, " ", "\\ ")
   else:
-    cmd = ""
-    # cmd = noMatchCommand & " \'" & rofiOutput & "\'"
-    # if defaultNoMatch.hasKey(noMatchCommand):
-    #   cmd = defaultNoMatch[noMatchCommand] & rofiOutput & "' &"
+    cmd = noMatchCommand & " \'" & rofiOutput & "\'"
+    if defaultNoMatch.hasKey(noMatchCommand):
+      cmd = defaultNoMatch[noMatchCommand] & rofiOutput & "' &"
 
   if path != "" and cmd != "":
     discard execShellCmd(cmd & path)
